@@ -260,6 +260,7 @@ input,textarea,select { font-family:inherit; font-size:1rem; }
 .top250-progress .progress-fill { height:100%; background:linear-gradient(90deg,#6366f1,#818cf8); border-radius:3px; transition:width 0.3s; }
 .top250-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--border); }
 .top250-item .top250-check { width:20px; height:20px; border:2px solid var(--border); border-radius:5px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.15s; }
+.top250-item .top250-check.disabled { background:#f0f0f5; border-style:dashed; cursor:not-allowed; opacity:0.55; }
 .top250-item .top250-check.checked { background:var(--success); border-color:var(--success); }
 .top250-item .top250-check.checked::after { content:'\2713'; color:#fff; font-size:0.8rem; font-weight:bold; }
 .top250-item.watched .top250-name { color:var(--success); }

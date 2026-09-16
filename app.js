@@ -323,7 +323,7 @@ const MH={
       <div class="map-stat-card"><div class="ms-val">${((visited.size/totalCountries)*100).toFixed(0)}%</div><div class="ms-label">完成度</div></div>
     </div>`;
 
-    h+=`<div class="map-legend"><span><span class="dot" style="background:#e2e8f0;border:1px solid #cbd5e1"></span>未去过</span><span><span class="dot" style="background:#22c55e"></span>去过</span><span><span class="dot" style="background:#e2e8f0;border:2px solid #3b82f6"></span>已选中</span><span style="color:#94a3b8;font-size:0.72rem">点击地图上的国家进行操作</span></div>`;
+    h+=`<div class="map-legend"><span><span class="dot" style="background:#e2e8f0;border:1px solid #cbd5e1"></span>未去过</span><span><span class="dot" style="background:#22c55e"></span>去过</span><span><span class="dot" style="background:#e2e8f0;border:2px solid #3b82f6"></span>已选中</span><span><span class="dot" style="background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold">✓</span>去过标注</span><span style="color:#94a3b8;font-size:0.72rem">点击地图上的国家查看/标注</span></div>`;
 
     h+=`<div class="world-map-wrap"><div id="worldMapSvg" style="min-height:200px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.85rem">加载世界地图中...</div></div>`;
     h+=`<div class="map-action-panel" id="mapActionPanel" style="display:none"></div>`;
@@ -383,7 +383,23 @@ const MH={
         panelEl.innerHTML=`<div class="map-panel-header"><span class="map-panel-title">📍 ${selectedCountry}</span><button class="map-panel-close" id="panelClose">✕</button></div><div class="map-panel-actions"><button class="map-panel-btn ${isVisited?'visited':''}" id="panelToggle">${isVisited?'✓ 已去过（点击取消）':'○ 标记去过'}</button><button class="map-panel-btn" id="panelLogs">📋 查看日志 (${logs.length})</button><button class="map-panel-btn primary" id="panelAdd">+ 添加日志</button></div><div class="map-panel-content" id="panelContent" style="display:none"></div>`;
         panelEl.style.display='block';
         panelEl.querySelector('#panelClose').onclick=deselect;
-        panelEl.querySelector('#panelToggle').onclick=async()=>{await MH.toggleCountry(selectedCountry);await refreshVisited();const iso=COUNTRY_ISO[selectedCountry];const el=svg.querySelector('#'+iso);if(el)applyVisuals(el,selectedCountry,true);renderPanel();};
+        panelEl.querySelector('#panelToggle').onclick=async()=>{
+          const all=await DB.all('travel');
+          const ex=all.find(i=>i.country===selectedCountry);
+          if(ex){await DB.del('travel',ex.id);U.toast(`${selectedCountry} 已取消标记`);}
+          else{
+            let continent='';
+            for(const[cont,countries]of Object.entries(WORLD_MAP)){if(countries.includes(selectedCountry)){continent=cont;break;}}
+            await DB.add('travel',{country:selectedCountry,continent,date:U.today(),note:'',image:null});
+            U.toast(`${selectedCountry} 已标记去过`);
+          }
+          await refreshVisited();
+          const iso=COUNTRY_ISO[selectedCountry];
+          const el=svg.querySelector('#'+iso);
+          if(el){applyVisuals(el,selectedCountry,true);if(visited.has(selectedCountry))addMarker(el);else removeMarker();}
+          renderPanel();
+          App.updateBadges();
+        };
         panelEl.querySelector('#panelLogs').onclick=showLogs;
         panelEl.querySelector('#panelAdd').onclick=showAddForm;
       };
@@ -420,7 +436,29 @@ const MH={
         content.querySelector('#panelCancel').onclick=()=>{content.style.display='none';};
       };
 
-      const deselect=()=>{if(selectedCountry){const iso=COUNTRY_ISO[selectedCountry];const el=svg.querySelector('#'+iso);if(el)applyVisuals(el,selectedCountry,false);}selectedCountry=null;panelEl.style.display='none';};
+      const removeMarker=()=>{const m=svg.querySelector('.country-marker');if(m)m.remove();};
+
+      const addMarker=(el)=>{
+        removeMarker();
+        let bbox;try{bbox=el.getBBox();}catch(e){return;}
+        if(!bbox||bbox.width<1)return;
+        const cx=bbox.x+bbox.width/2, cy=bbox.y+bbox.height/2;
+        const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('class','country-marker');
+        g.setAttribute('pointer-events','none');
+        const r=Math.max(5,Math.min(14,bbox.width*0.10));
+        const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);
+        c.setAttribute('fill','#3b82f6');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','1.5');
+        const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x',cx);t.setAttribute('y',cy);t.setAttribute('text-anchor','middle');t.setAttribute('dominant-baseline','central');
+        t.setAttribute('font-size',r*1.1);t.setAttribute('fill','#fff');t.setAttribute('font-weight','bold');
+        t.textContent='✓';
+        g.appendChild(c);g.appendChild(t);
+        svg.appendChild(g);
+      };
+
+      const deselect=()=>{if(selectedCountry){const iso=COUNTRY_ISO[selectedCountry];const el=svg.querySelector('#'+iso);if(el)applyVisuals(el,selectedCountry,false);}selectedCountry=null;removeMarker();panelEl.style.display='none';};
 
       const select=(countryName)=>{
         if(selectedCountry===countryName){deselect();return;}
@@ -428,7 +466,10 @@ const MH={
         selectedCountry=countryName;
         const iso=COUNTRY_ISO[countryName];
         const el=svg.querySelector('#'+iso);
-        if(el)applyVisuals(el,countryName,true);
+        if(el){
+          applyVisuals(el,countryName,true);
+          if(visited.has(countryName))addMarker(el);else removeMarker();
+        }
         renderPanel();
         panelEl.scrollIntoView({behavior:'smooth',block:'nearest'});
       };
@@ -641,34 +682,47 @@ const MH={
     const ex=items.filter(i=>i.type==='运动'),so=items.filter(i=>i.type==='泡脚'),per=items.filter(i=>i.type==='月经'),sug=items.filter(i=>i.type==='含糖饮料'),bm=items.filter(i=>i.type==='如厕');
     const exMin=ex.reduce((s,i)=>s+(parseInt(i.duration)||0),0);
     const sd=sug.filter(i=>i.date===U.today()).length;
-    // Period prediction
-    let nextP='';if(per.length){const ds=per.map(i=>i.date).sort().reverse();if(ds[0]){const last=new Date(ds[0]+'T00:00:00');const next=new Date(last.getTime()+28*86400000);nextP=`下次预计: ${U.fmtShort(next.getTime())}`;}}
+    // Period prediction (based on period END date when available)
+    let nextP='',lastPDays='';
+    if(per.length){
+      const ds=per.map(i=>i.endDate||i.date).sort().reverse();
+      if(ds[0]){const last=new Date(ds[0]+'T00:00:00');const next=new Date(last.getTime()+28*86400000);nextP=`下次预计: ${U.fmtShort(next.getTime())}`;}
+      const withEnd=per.filter(i=>i.endDate).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      if(withEnd.length){const w=withEnd[0];const days=Math.round((new Date(w.endDate+'T00:00:00')-new Date(w.date+'T00:00:00'))/86400000)+1;if(days>0)lastPDays=`最近${days}天`;}
+    }
     let h=`<div class="health-stats">
       <div class="health-stat-card"><div class="stat-value">${ex.length}</div><div class="stat-label">运动次数</div></div>
       <div class="health-stat-card"><div class="stat-value">${so.length}</div><div class="stat-label">泡脚次数</div></div>
       <div class="health-stat-card"><div class="stat-value">${exMin}</div><div class="stat-label">运动(分)</div></div>
       <div class="health-stat-card"><div class="stat-value">${sd}</div><div class="stat-label">今日含糖</div></div>
-      ${nextP?`<div class="health-stat-card"><div class="stat-value" style="font-size:1rem">${nextP}</div><div class="stat-label">月经周期</div></div>`:''}
+      ${nextP?`<div class="health-stat-card"><div class="stat-value" style="font-size:1rem">${nextP}</div><div class="stat-label">${lastPDays?lastPDays:'月经周期'}</div></div>`:''}
     </div>`;
     if(!items.length){h+=`<div class="empty-state"><div class="empty-icon">💪</div><p>还没有记录</p></div>`;}
     else{
       items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       items.forEach(item=>{
-        h+=`<div class="item-card"><div class="item-body"><div class="item-title">${U.esc(item.type)} ${item.duration?item.duration+'分钟':''}</div><div class="item-desc">${item.date||''} ${item.content?'| '+U.esc(item.content):''}</div></div><div class="actions"><button class="action-btn edit" onclick="MH.edit('health','${item.id}')">编辑</button><button class="action-btn del" onclick="MH.del('health','${item.id}')">删除</button></div></div>`;
+        const dateTxt=item.type==='月经'&&item.endDate?`${item.date} ~ ${item.endDate}`:(item.date||'');
+        h+=`<div class="item-card"><div class="item-body"><div class="item-title">${U.esc(item.type)} ${item.duration?item.duration+'分钟':''}</div><div class="item-desc">${dateTxt} ${item.content?'| '+U.esc(item.content):''}</div></div><div class="actions"><button class="action-btn edit" onclick="MH.edit('health','${item.id}')">编辑</button><button class="action-btn del" onclick="MH.del('health','${item.id}')">删除</button></div></div>`;
       });
     }
     c.innerHTML=h;
   },
 
   form_health(item){
-    return`<div class="form-group"><label>类型</label><select id="f_type">${['运动','泡脚','月经','含糖饮料','如厕'].map(t=>`<option value="${t}" ${item?.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    return`<div class="form-group"><label>类型</label><select id="f_type" onchange="MH.togglePeriodField(this)">${['运动','泡脚','月经','含糖饮料','如厕'].map(t=>`<option value="${t}" ${item?.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="form-group"><label>日期</label><input type="date" id="f_date" value="${item?.date||U.today()}"></div>
+    <div class="form-group" id="f_periodEndGroup" style="display:${item?.type==='月经'?'block':'none'}"><label>结束日期</label><input type="date" id="f_periodEnd" value="${item?.endDate||''}"><div style="font-size:0.7rem;color:#94a3b8;margin-top:4px">填写结束日期后，将按区间记录并用于预测下次周期</div></div>
     <div class="form-group"><label>时长（分钟）</label><input type="number" id="f_duration" value="${item?.duration||''}" min="0"></div>
     <div class="form-group"><label>内容</label><textarea id="f_content" placeholder="如：跑步5公里...">${U.esc(item?.content||'')}</textarea></div>`;
   },
 
+  togglePeriodField(s){const g=document.getElementById('f_periodEndGroup');if(g)g.style.display=s.value==='月经'?'block':'none';},
+
   async save_health(){
-    const d={type:document.getElementById('f_type').value,date:document.getElementById('f_date').value,duration:parseInt(document.getElementById('f_duration').value)||0,content:document.getElementById('f_content').value.trim()};
+    const t=document.getElementById('f_type').value;
+    const endEl=document.getElementById('f_periodEnd');
+    const d={type:t,date:document.getElementById('f_date').value,endDate:(t==='月经'&&endEl)?endEl.value:'',duration:parseInt(document.getElementById('f_duration').value)||0,content:document.getElementById('f_content').value.trim()};
+    if(t==='月经'&&d.endDate&&d.endDate<d.date){U.toast('结束日期不能早于开始日期');return;}
     if(App.editId){d.id=App.editId;const ex=await DB.get('health',App.editId);d.createdAt=ex.createdAt;await DB.put('health',d);U.toast('已更新');}
     else{await DB.add('health',d);U.toast('已添加');}
     App.closeModal();this.render('health');App.updateBadges();
@@ -783,7 +837,7 @@ const MH={
       list.forEach((b,i)=>{
         const added=myBooks.find(mb=>mb.name===b.name);
         const read=added&&added.done;
-        h+=`<div class="top250-item ${read?'watched':''}"><div class="top250-check ${read?'checked':''}" onclick="MH.toggleTop250('books','${U.esc(b.name)}','${U.esc(b.author)}')"></div><span class="rank">${i+1}</span><div class="top250-info"><div class="top250-name">${U.esc(b.name)}</div><div class="top250-meta">${U.esc(b.author)}</div></div><span class="top250-rating">${b.rating}</span><button class="top250-btn ${added?'added':''}" onclick="MH.addFromTop250('books','${U.esc(b.name)}','${U.esc(b.author)}')">${added?'已加入':'加入'}</button></div>`;
+        h+=`<div class="top250-item ${read?'watched':''}"><div class="top250-check ${read?'checked':''} ${added?'':'disabled'}" onclick="MH.toggleTop250('books','${U.esc(b.name)}','${U.esc(b.author)}')"></div><span class="rank">${i+1}</span><div class="top250-info"><div class="top250-name">${U.esc(b.name)}</div><div class="top250-meta">${U.esc(b.author)}</div></div><span class="top250-rating">${b.rating}</span><button class="top250-btn ${added?'added':''}" onclick="MH.addFromTop250('books','${U.esc(b.name)}','${U.esc(b.author)}')">${added?'已加入':'加入'}</button></div>`;
       });
       h+='</div>';
     }
@@ -801,14 +855,13 @@ const MH={
   async toggleTop250(store,name,author){
     const items=await DB.all(store);
     const ex=items.find(i=>i.name===name);
-    if(ex){
-      ex.done=!ex.done;
-      await DB.put(store,ex);
-      U.toast(ex.done?(store==='movies'?'已标记为已看':'已标记为已读'):'已取消标记');
-    }else{
-      await DB.add(store,{name,author,done:true});
-      U.toast(store==='movies'?'已标记为已看':'已标记为已读');
+    if(!ex){
+      U.toast(store==='movies'?'请先点右侧"加入"加入片单':'请先点右侧"加入"加入书单');
+      return;
     }
+    ex.done=!ex.done;
+    await DB.put(store,ex);
+    U.toast(ex.done?(store==='movies'?'已标记为已看':'已标记为已读'):'已取消标记');
     this.render(store);App.updateBadges();
   },
 
@@ -840,7 +893,7 @@ const MH={
       list.forEach((m,i)=>{
         const added=myM.find(mm=>mm.name===m.name);
         const watched=added&&added.done;
-        h+=`<div class="top250-item ${watched?'watched':''}"><div class="top250-check ${watched?'checked':''}" onclick="MH.toggleTop250('movies','${U.esc(m.name)}','${U.esc(m.director)}')"></div><span class="rank">${i+1}</span><div class="top250-info"><div class="top250-name">${U.esc(m.name)}</div><div class="top250-meta">${U.esc(m.director)} ${m.year}</div></div><span class="top250-rating">${m.rating}</span><button class="top250-btn ${added?'added':''}" onclick="MH.addMovieFromTop250('${U.esc(m.name)}','${U.esc(m.director)}',${m.year})">${added?'已加入':'加入'}</button></div>`;
+        h+=`<div class="top250-item ${watched?'watched':''}"><div class="top250-check ${watched?'checked':''} ${added?'':'disabled'}" onclick="MH.toggleTop250('movies','${U.esc(m.name)}','${U.esc(m.director)}')"></div><span class="rank">${i+1}</span><div class="top250-info"><div class="top250-name">${U.esc(m.name)}</div><div class="top250-meta">${U.esc(m.director)} ${m.year}</div></div><span class="top250-rating">${m.rating}</span><button class="top250-btn ${added?'added':''}" onclick="MH.addMovieFromTop250('${U.esc(m.name)}','${U.esc(m.director)}',${m.year})">${added?'已加入':'加入'}</button></div>`;
       });
       h+='</div>';
     }
