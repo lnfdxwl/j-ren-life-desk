@@ -363,7 +363,13 @@ const MH={
       const panelEl=document.getElementById('mapActionPanel');
       let selectedCountry=null;
 
-      // CRITICAL: default-fill ALL paths first so nothing is black
+      // ISO code -> Chinese name reverse map
+      const ISO_TO_NAME={};
+      for(const[name,iso]of Object.entries(COUNTRY_ISO))ISO_TO_NAME[iso]=name;
+      const getCountryEl=(name)=>{const iso=COUNTRY_ISO[name]||name.toLowerCase();return svg.querySelector('#'+iso);};
+      const countryNameOf=(iso)=>ISO_TO_NAME[iso]||iso.toUpperCase();
+
+      // Default-fill: set all paths (including children of <g>) so nothing is black
       svg.querySelectorAll('path').forEach(p=>{p.setAttribute('fill','#e2e8f0');p.setAttribute('stroke','#cbd5e1');p.setAttribute('stroke-width','0.5');});
       svg.querySelectorAll('g[id]').forEach(g=>{g.setAttribute('fill','#e2e8f0');g.setAttribute('stroke','#cbd5e1');g.setAttribute('stroke-width','0.5');});
 
@@ -371,9 +377,18 @@ const MH={
 
       const applyVisuals=(el,countryName,isSelected)=>{
         const v=visited.has(countryName);
-        el.setAttribute('fill',v?'#22c55e':'#e2e8f0');
-        if(isSelected){el.setAttribute('stroke','#3b82f6');el.setAttribute('stroke-width','1.8');el.style.filter='drop-shadow(0 0 4px rgba(59,130,246,0.7))';}
-        else{el.setAttribute('stroke',v?'#16a34a':'#cbd5e1');el.setAttribute('stroke-width','0.5');el.style.filter='';}
+        const fill=v?'#22c55e':'#e2e8f0';
+        el.setAttribute('fill',fill);
+        el.querySelectorAll('path').forEach(p=>p.setAttribute('fill',fill));
+        if(isSelected){
+          el.setAttribute('stroke','#3b82f6');el.setAttribute('stroke-width','1.8');el.style.filter='drop-shadow(0 0 4px rgba(59,130,246,0.7))';
+          el.querySelectorAll('path').forEach(p=>{p.setAttribute('stroke','#3b82f6');p.setAttribute('stroke-width','1.8');});
+        }
+        else{
+          const stroke=v?'#16a34a':'#cbd5e1';
+          el.setAttribute('stroke',stroke);el.setAttribute('stroke-width','0.5');el.style.filter='';
+          el.querySelectorAll('path').forEach(p=>{p.setAttribute('stroke',stroke);p.setAttribute('stroke-width','0.5');});
+        }
       };
 
       const renderPanel=()=>{
@@ -394,8 +409,7 @@ const MH={
             U.toast(`${selectedCountry} 已标记去过`);
           }
           await refreshVisited();
-          const iso=COUNTRY_ISO[selectedCountry];
-          const el=svg.querySelector('#'+iso);
+          const el=getCountryEl(selectedCountry);
           if(el){applyVisuals(el,selectedCountry,true);if(visited.has(selectedCountry))addMarker(el);else removeMarker();}
           renderPanel();
           App.updateBadges();
@@ -426,8 +440,7 @@ const MH={
             await DB.add('travel',{country:selectedCountry,date,continent,note,image:img||''});
             U.toast('已添加旅行日志');
             await refreshVisited();
-            const iso=COUNTRY_ISO[selectedCountry];
-            const el=svg.querySelector('#'+iso);
+            const el=getCountryEl(selectedCountry);
             if(el)applyVisuals(el,selectedCountry,true);
             renderPanel();
           };
@@ -458,14 +471,13 @@ const MH={
         svg.appendChild(g);
       };
 
-      const deselect=()=>{if(selectedCountry){const iso=COUNTRY_ISO[selectedCountry];const el=svg.querySelector('#'+iso);if(el)applyVisuals(el,selectedCountry,false);}selectedCountry=null;removeMarker();panelEl.style.display='none';};
+      const deselect=()=>{if(selectedCountry){const el=getCountryEl(selectedCountry);if(el)applyVisuals(el,selectedCountry,false);}selectedCountry=null;removeMarker();panelEl.style.display='none';};
 
       const select=(countryName)=>{
         if(selectedCountry===countryName){deselect();return;}
-        if(selectedCountry){const prevIso=COUNTRY_ISO[selectedCountry];const prevEl=svg.querySelector('#'+prevIso);if(prevEl)applyVisuals(prevEl,selectedCountry,false);}
+        if(selectedCountry){const prevEl=getCountryEl(selectedCountry);if(prevEl)applyVisuals(prevEl,selectedCountry,false);}
         selectedCountry=countryName;
-        const iso=COUNTRY_ISO[countryName];
-        const el=svg.querySelector('#'+iso);
+        const el=getCountryEl(countryName);
         if(el){
           applyVisuals(el,countryName,true);
           if(visited.has(countryName))addMarker(el);else removeMarker();
@@ -474,15 +486,23 @@ const MH={
         panelEl.scrollIntoView({behavior:'smooth',block:'nearest'});
       };
 
-      // Wire up countries with paths
-      for(const[countryName,iso]of Object.entries(COUNTRY_ISO)){
-        const el=svg.querySelector('#'+iso);
-        if(!el)continue;
+      // Wire up ALL countries in the SVG (not just those in COUNTRY_ISO)
+      let svgCountryCount=0;
+      svg.querySelectorAll('[id]').forEach(el=>{
+        if(el.tagName!=='path'&&el.tagName!=='g')return;
+        const iso=el.id;
+        if(iso==='world-map'||iso.startsWith('_'))return;
+        if(iso.length!==2)return;
+        svgCountryCount++;
+        const countryName=countryNameOf(iso);
         applyVisuals(el,countryName,false);
         el.style.cursor='pointer';
         el.dataset.country=countryName;
         el.addEventListener('click',(e)=>{e.stopPropagation();select(countryName);});
-      }
+      });
+      // Update stats with real SVG country count
+      const totalEl=document.querySelector('.map-stat-card .ms-val.total');
+      if(totalEl){totalEl.textContent=svgCountryCount;const pct=((visited.size/svgCountryCount)*100).toFixed(0);document.querySelectorAll('.map-stat-card .ms-val')[2].textContent=pct+'%';}
 
       // Small island markers
       const vb=svg.viewBox.baseVal;
@@ -771,30 +791,67 @@ const MH={
   async render_packing(){
     const items=await DB.search('packing',this._q['packing']||'');
     const c=document.getElementById('moduleContent');
-    let h=`<button class="header-btn" style="background:#f97316;margin-bottom:10px" onclick="MH.newPackingList('domestic')">📋 从国内模板新建</button>
-    <button class="header-btn" style="background:#f59e0b;margin-bottom:10px" onclick="MH.newPackingList('international')">📋 从国外模板新建</button>`;
-    if(!items.length){h+=`<div class="empty-state"><div class="empty-icon">🎒</div><p>还没有行李清单，从上方模板新建</p></div>`;}
-    else{
-      items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-      items.forEach(item=>{
-        const list=item.items||[];const chk=list.filter(i=>i.checked).length;
-        h+=`<div class="packing-list"><div class="pl-header"><div><span class="pl-title">${U.esc(item.listName)}</span><span class="pl-type-badge ${item.type||'domestic'}">${item.type==='international'?'国外':'国内'}</span></div><span class="pl-progress">${chk}/${list.length}</span></div>`;
-        list.forEach((li,i)=>{
-          h+=`<div class="packing-item ${li.checked?'checked':''}"><div class="check-box ${li.checked?'checked':''}" onclick="MH.togglePack('${item.id}',${i})"></div><span class="pi-name">${U.esc(li.name)}</span><button class="action-btn del" onclick="MH.delPack('${item.id}',${i})" style="padding:2px 6px;font-size:0.7rem">x</button></div>`;
+    const currentId=this._subTab['packing_current']||null;
+
+    if(currentId){
+      // ===== 第二级：某个清单的物品列表 =====
+      const list=items.find(i=>i.id===currentId);
+      if(!list){this._subTab['packing_current']=null;this.render('packing');return;}
+      const listItems=list.items||[];
+      const chk=listItems.filter(i=>i.checked).length;
+      let h=`<div class="packing-detail-header">
+        <button class="action-btn" onclick="MH.backToPackingLists()">← 返回清单列表</button>
+        <div class="packing-detail-title"><span class="pl-title">${U.esc(list.listName)}</span><span class="pl-type-badge ${list.type||'domestic'}">${list.type==='international'?'国外':'国内'}</span></div>
+        <span class="pl-progress">${chk}/${listItems.length}</span>
+      </div>`;
+      if(!listItems.length){h+=`<div class="empty-state"><div class="empty-icon">📦</div><p>清单为空，添加点物品吧</p></div>`;}
+      else{
+        listItems.forEach((li,i)=>{
+          h+=`<div class="packing-item ${li.checked?'checked':''}"><div class="check-box ${li.checked?'checked':''}" onclick="MH.togglePack('${list.id}',${i})"></div><span class="pi-name">${U.esc(li.name)}</span><button class="action-btn del" onclick="MH.delPack('${list.id}',${i})" style="padding:2px 6px;font-size:0.7rem">×</button></div>`;
         });
-        h+=`<div class="packing-add"><input type="text" id="pa_${item.id}" placeholder="添加物品..." onkeypress="if(event.key==='Enter')MH.addPack('${item.id}')"><button onclick="MH.addPack('${item.id}')">添加</button></div>`;
-        h+=`<div style="margin-top:8px;display:flex;gap:6px"><button class="action-btn edit" onclick="MH.editPacking('${item.id}')">重命名</button><button class="action-btn del" onclick="MH.del('packing','${item.id}')">删除清单</button></div></div>`;
-      });
+      }
+      h+=`<div class="packing-add"><input type="text" id="pa_${list.id}" placeholder="添加物品..." onkeypress="if(event.key==='Enter')MH.addPack('${list.id}')"><button onclick="MH.addPack('${list.id}')">添加</button></div>`;
+      h+=`<div style="margin-top:12px;display:flex;gap:6px"><button class="action-btn edit" onclick="MH.editPacking('${list.id}')">重命名</button><button class="action-btn del" onclick="MH.del('packing','${list.id}')">删除清单</button></div>`;
+      c.innerHTML=h;
+    } else {
+      // ===== 第一级：清单列表 =====
+      let h=`<div class="packing-list-actions">
+        <button class="header-btn" style="background:#f97316" onclick="MH.newPackingList('domestic')">📋 国内模板新建</button>
+        <button class="header-btn" style="background:#f59e0b" onclick="MH.newPackingList('international')">📋 国外模板新建</button>
+        <button class="header-btn" style="background:#6366f1" onclick="MH.add('packing')">+ 空白清单</button>
+      </div>`;
+      if(!items.length){h+=`<div class="empty-state"><div class="empty-icon">🎒</div><p>还没有行李清单，从上方模板新建</p></div>`;}
+      else{
+        items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+        h+='<div class="packing-cards">';
+        items.forEach(item=>{
+          const list=item.items||[];const chk=list.filter(i=>i.checked).length;
+          const pct=list.length?Math.round(chk/list.length*100):0;
+          h+=`<div class="packing-card" onclick="MH.openPackingList('${item.id}')">
+            <div class="packing-card-top"><span class="pl-title">${U.esc(item.listName)}</span><span class="pl-type-badge ${item.type||'domestic'}">${item.type==='international'?'国外':'国内'}</span></div>
+            <div class="packing-card-progress"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><span>${chk}/${list.length} 已打包</span></div>
+            <div class="packing-card-actions" onclick="event.stopPropagation()">
+              <button class="action-btn edit" onclick="MH.editPacking('${item.id}')">重命名</button>
+              <button class="action-btn del" onclick="MH.del('packing','${item.id}')">删除</button>
+            </div>
+          </div>`;
+        });
+        h+='</div>';
+      }
+      c.innerHTML=h;
     }
-    c.innerHTML=h;
   },
+
+  async openPackingList(id){this._subTab['packing_current']=id;this.render('packing');},
+  async backToPackingLists(){this._subTab['packing_current']=null;this.render('packing');},
 
   async newPackingList(type){
     const tpl=PACKING_TEMPLATES[type]||PACKING_TEMPLATES.domestic;
     const items=tpl.map(name=>({name,checked:false}));
     const name=type==='international'?'国外旅行清单':'国内旅行清单';
-    await DB.add('packing',{listName:name+' '+new Date().toLocaleDateString('zh-CN',{month:'short',day:'numeric'}),type,items});
+    const newList=await DB.add('packing',{listName:name+' '+new Date().toLocaleDateString('zh-CN',{month:'short',day:'numeric'}),type,items});
     U.toast('已从模板创建清单');
+    this._subTab['packing_current']=newList.id;
     this.render('packing');App.updateBadges();
   },
 
@@ -803,7 +860,7 @@ const MH={
   async save_packing(){
     const n=document.getElementById('f_listName').value.trim();if(!n){U.toast('请填写名称');return;}
     if(App.editId){const ex=await DB.get('packing',App.editId);ex.listName=n;await DB.put('packing',ex);U.toast('已更新');}
-    else{await DB.add('packing',{listName:n,items:[]});U.toast('已添加');}
+    else{const newList=await DB.add('packing',{listName:n,items:[]});U.toast('已添加');this._subTab['packing_current']=newList.id;}
     App.closeModal();this.render('packing');App.updateBadges();
   },
 

@@ -207,13 +207,29 @@ input,textarea,select { font-family:inherit; font-size:1rem; }
 .health-stat-card .stat-label { font-size:0.75rem; color:var(--text-secondary); margin-top:2px; }
 
 /* Packing */
-.packing-list { background:var(--card-bg); border-radius:10px; padding:12px; margin-bottom:10px; box-shadow:var(--shadow); }
-.packing-list .pl-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-.packing-list .pl-title { font-size:0.95rem; font-weight:700; }
-.packing-list .pl-type-badge { font-size:0.65rem; padding:2px 6px; border-radius:4px; margin-left:6px; }
-.packing-list .pl-type-badge.domestic { background:#dbeafe; color:#2563eb; }
-.packing-list .pl-type-badge.international { background:#fef3c7; color:#d97706; }
-.packing-list .pl-progress { font-size:0.78rem; color:var(--text-secondary); }
+.pl-title { font-size:0.95rem; font-weight:700; }
+.pl-type-badge { font-size:0.65rem; padding:2px 6px; border-radius:4px; margin-left:6px; }
+.pl-type-badge.domestic { background:#dbeafe; color:#2563eb; }
+.pl-type-badge.international { background:#fef3c7; color:#d97706; }
+.pl-progress { font-size:0.78rem; color:var(--text-secondary); }
+
+/* 第一级：清单列表 */
+.packing-list-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.packing-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.packing-card { background:var(--card-bg); border-radius:10px; padding:14px; box-shadow:var(--shadow); cursor:pointer; transition:all 0.15s; border:1px solid transparent; }
+.packing-card:hover { border-color:var(--primary); transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+.packing-card:active { transform:scale(0.98); }
+.packing-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.packing-card-progress { display:flex; align-items:center; gap:8px; }
+.packing-card-progress .progress-bar { flex:1; height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; }
+.packing-card-progress .progress-fill { height:100%; background:var(--success); border-radius:3px; transition:width 0.3s; }
+.packing-card-progress span { font-size:0.72rem; color:var(--text-secondary); white-space:nowrap; }
+.packing-card-actions { display:flex; gap:6px; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
+
+/* 第二级：清单详情 */
+.packing-detail-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+.packing-detail-title { flex:1; display:flex; align-items:center; }
+
 .packing-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); }
 .packing-item:last-child { border-bottom:none; }
 .packing-item .check-box { width:20px; height:20px; border:2px solid var(--border); border-radius:5px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
