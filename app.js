@@ -791,59 +791,63 @@ const MH={
   async render_packing(){
     const items=await DB.search('packing',this._q['packing']||'');
     const c=document.getElementById('moduleContent');
-    const currentId=this._subTab['packing_current']||null;
-
-    if(currentId){
-      // ===== 第二级：某个清单的物品列表 =====
-      const list=items.find(i=>i.id===currentId);
-      if(!list){this._subTab['packing_current']=null;this.render('packing');return;}
-      const listItems=list.items||[];
-      const chk=listItems.filter(i=>i.checked).length;
-      let h=`<div class="packing-detail-header">
-        <button class="action-btn" onclick="MH.backToPackingLists()">← 返回清单列表</button>
-        <div class="packing-detail-title"><span class="pl-title">${U.esc(list.listName)}</span><span class="pl-type-badge ${list.type||'domestic'}">${list.type==='international'?'国外':'国内'}</span></div>
-        <span class="pl-progress">${chk}/${listItems.length}</span>
-      </div>`;
-      if(!listItems.length){h+=`<div class="empty-state"><div class="empty-icon">📦</div><p>清单为空，添加点物品吧</p></div>`;}
-      else{
-        listItems.forEach((li,i)=>{
-          h+=`<div class="packing-item ${li.checked?'checked':''}"><div class="check-box ${li.checked?'checked':''}" onclick="MH.togglePack('${list.id}',${i})"></div><span class="pi-name">${U.esc(li.name)}</span><button class="action-btn del" onclick="MH.delPack('${list.id}',${i})" style="padding:2px 6px;font-size:0.7rem">×</button></div>`;
-        });
-      }
-      h+=`<div class="packing-add"><input type="text" id="pa_${list.id}" placeholder="添加物品..." onkeypress="if(event.key==='Enter')MH.addPack('${list.id}')"><button onclick="MH.addPack('${list.id}')">添加</button></div>`;
-      h+=`<div style="margin-top:12px;display:flex;gap:6px"><button class="action-btn edit" onclick="MH.editPacking('${list.id}')">重命名</button><button class="action-btn del" onclick="MH.del('packing','${list.id}')">删除清单</button></div>`;
-      c.innerHTML=h;
-    } else {
-      // ===== 第一级：清单列表 =====
-      let h=`<div class="packing-list-actions">
-        <button class="header-btn" style="background:#f97316" onclick="MH.newPackingList('domestic')">📋 国内模板新建</button>
-        <button class="header-btn" style="background:#f59e0b" onclick="MH.newPackingList('international')">📋 国外模板新建</button>
-        <button class="header-btn" style="background:#6366f1" onclick="MH.add('packing')">+ 空白清单</button>
-      </div>`;
-      if(!items.length){h+=`<div class="empty-state"><div class="empty-icon">🎒</div><p>还没有行李清单，从上方模板新建</p></div>`;}
-      else{
-        items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-        h+='<div class="packing-cards">';
-        items.forEach(item=>{
-          const list=item.items||[];const chk=list.filter(i=>i.checked).length;
-          const pct=list.length?Math.round(chk/list.length*100):0;
-          h+=`<div class="packing-card" onclick="MH.openPackingList('${item.id}')">
-            <div class="packing-card-top"><span class="pl-title">${U.esc(item.listName)}</span><span class="pl-type-badge ${item.type||'domestic'}">${item.type==='international'?'国外':'国内'}</span></div>
-            <div class="packing-card-progress"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><span>${chk}/${list.length} 已打包</span></div>
-            <div class="packing-card-actions" onclick="event.stopPropagation()">
-              <button class="action-btn edit" onclick="MH.editPacking('${item.id}')">重命名</button>
-              <button class="action-btn del" onclick="MH.del('packing','${item.id}')">删除</button>
-            </div>
-          </div>`;
-        });
-        h+='</div>';
-      }
-      c.innerHTML=h;
+    let h=`<div class="packing-list-actions">
+      <button class="header-btn" style="background:#f97316" onclick="MH.newPackingList('domestic')">📋 国内模板新建</button>
+      <button class="header-btn" style="background:#f59e0b" onclick="MH.newPackingList('international')">📋 国外模板新建</button>
+      <button class="header-btn" style="background:#6366f1" onclick="MH.add('packing')">+ 空白清单</button>
+    </div>`;
+    if(!items.length){h+=`<div class="empty-state"><div class="empty-icon">🎒</div><p>还没有行李清单，从上方模板新建</p></div>`;}
+    else{
+      items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      h+='<div class="packing-cards">';
+      items.forEach(item=>{
+        const list=item.items||[];const chk=list.filter(i=>i.checked).length;
+        const pct=list.length?Math.round(chk/list.length*100):0;
+        h+=`<div class="packing-card" onclick="MH.openPackingModal('${item.id}')">
+          <div class="packing-card-top"><span class="pl-title">${U.esc(item.listName)}</span><span class="pl-type-badge ${item.type||'domestic'}">${item.type==='international'?'国外':'国内'}</span></div>
+          <div class="packing-card-progress"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><span>${chk}/${list.length} 已打包</span></div>
+          <div class="packing-card-actions" onclick="event.stopPropagation()">
+            <button class="action-btn edit" onclick="MH.editPacking('${item.id}')">重命名</button>
+            <button class="action-btn del" onclick="MH.del('packing','${item.id}')">删除</button>
+          </div>
+        </div>`;
+      });
+      h+='</div>';
     }
+    c.innerHTML=h;
   },
 
-  async openPackingList(id){this._subTab['packing_current']=id;this.render('packing');},
-  async backToPackingLists(){this._subTab['packing_current']=null;this.render('packing');},
+  _packingModalId:null,
+
+  async openPackingModal(id){
+    const list=await DB.get('packing',id);
+    if(!list)return;
+    this._packingModalId=id;
+    document.getElementById('modalTitle').textContent=list.listName;
+    this._renderPackingModalItems(list);
+    document.querySelector('#modal .modal-footer').innerHTML='<button class="btn-save" onclick="App.closeModal()">完成</button>';
+    document.getElementById('modal').style.display='flex';
+  },
+
+  _renderPackingModalItems(list){
+    const listItems=list.items||[];
+    const chk=listItems.filter(i=>i.checked).length;
+    let h=`<div style="margin-bottom:10px;font-size:0.82rem;color:var(--text-secondary);font-weight:600">已打包 ${chk}/${listItems.length}</div>`;
+    if(!listItems.length){h+='<div style="padding:24px;text-align:center;color:#94a3b8;font-size:0.85rem">📦 清单为空，添加点物品吧</div>';}
+    else{
+      listItems.forEach((li,i)=>{
+        h+=`<div class="packing-item ${li.checked?'checked':''}"><div class="check-box ${li.checked?'checked':''}" onclick="MH.togglePack('${list.id}',${i})"></div><span class="pi-name">${U.esc(li.name)}</span><button class="action-btn del" onclick="MH.delPack('${list.id}',${i})" style="padding:2px 6px;font-size:0.7rem">×</button></div>`;
+      });
+    }
+    h+=`<div class="packing-add"><input type="text" id="packingModalInput" placeholder="添加物品..." onkeypress="if(event.key==='Enter')MH.addPack('${list.id}')"><button onclick="MH.addPack('${list.id}')">添加</button></div>`;
+    document.getElementById('modalBody').innerHTML=h;
+  },
+
+  async _refreshPackingModal(){
+    if(!this._packingModalId)return;
+    const list=await DB.get('packing',this._packingModalId);
+    if(list)this._renderPackingModalItems(list);
+  },
 
   async newPackingList(type){
     const tpl=PACKING_TEMPLATES[type]||PACKING_TEMPLATES.domestic;
@@ -851,24 +855,23 @@ const MH={
     const name=type==='international'?'国外旅行清单':'国内旅行清单';
     const newList=await DB.add('packing',{listName:name+' '+new Date().toLocaleDateString('zh-CN',{month:'short',day:'numeric'}),type,items});
     U.toast('已从模板创建清单');
-    this._subTab['packing_current']=newList.id;
     this.render('packing');App.updateBadges();
+    this.openPackingModal(newList.id);
   },
 
   form_packing(item){return`<div class="form-group"><label>清单名称</label><input type="text" id="f_listName" value="${U.esc(item?.listName||'')}"></div>`;},
 
   async save_packing(){
     const n=document.getElementById('f_listName').value.trim();if(!n){U.toast('请填写名称');return;}
-    if(App.editId){const ex=await DB.get('packing',App.editId);ex.listName=n;await DB.put('packing',ex);U.toast('已更新');}
-    else{const newList=await DB.add('packing',{listName:n,items:[]});U.toast('已添加');this._subTab['packing_current']=newList.id;}
-    App.closeModal();this.render('packing');App.updateBadges();
+    if(App.editId){const ex=await DB.get('packing',App.editId);ex.listName=n;await DB.put('packing',ex);U.toast('已更新');App.closeModal();this.render('packing');App.updateBadges();}
+    else{const newList=await DB.add('packing',{listName:n,items:[]});U.toast('已添加');App.closeModal();this.render('packing');App.updateBadges();this.openPackingModal(newList.id);}
   },
 
   async editPacking(id){const item=await DB.get('packing',id);App.editId=id;App.openModal('重命名清单',this.form_packing(item));},
 
-  async addPack(id){const inp=document.getElementById('pa_'+id);const n=inp.value.trim();if(!n)return;const l=await DB.get('packing',id);l.items.push({name:n,checked:false});await DB.put('packing',l);this.render('packing');},
-  async togglePack(id,i){const l=await DB.get('packing',id);l.items[i].checked=!l.items[i].checked;await DB.put('packing',l);this.render('packing');},
-  async delPack(id,i){App.askConfirm('删除这个物品？',async()=>{const l=await DB.get('packing',id);l.items.splice(i,1);await DB.put('packing',l);this.render('packing');});},
+  async addPack(id){const inp=document.getElementById('packingModalInput');const n=inp?inp.value.trim():'';if(!n)return;const l=await DB.get('packing',id);l.items.push({name:n,checked:false});await DB.put('packing',l);this._refreshPackingModal();this.render('packing');},
+  async togglePack(id,i){const l=await DB.get('packing',id);l.items[i].checked=!l.items[i].checked;await DB.put('packing',l);this._refreshPackingModal();this.render('packing');},
+  async delPack(id,i){App.askConfirm('删除这个物品？',async()=>{const l=await DB.get('packing',id);l.items.splice(i,1);await DB.put('packing',l);this._refreshPackingModal();this.render('packing');});},
 
   /* ===== 10. 读书清单 ===== */
   async render_books(){
