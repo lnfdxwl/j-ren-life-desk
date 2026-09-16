@@ -318,9 +318,9 @@ const MH={
     const totalCountries=Object.keys(COUNTRY_ISO).length;
 
     let h=`<div class="map-stats">
-      <div class="map-stat-card"><div class="ms-val">${visited.size}</div><div class="ms-label">已去过</div></div>
-      <div class="map-stat-card"><div class="ms-val total">${totalCountries}</div><div class="ms-label">总国家数</div></div>
-      <div class="map-stat-card"><div class="ms-val">${((visited.size/totalCountries)*100).toFixed(0)}%</div><div class="ms-label">完成度</div></div>
+      <div class="map-stat-card"><div class="ms-val" id="travelStatVisited">${visited.size}</div><div class="ms-label">已去过</div></div>
+      <div class="map-stat-card"><div class="ms-val total" id="travelStatTotal">${totalCountries}</div><div class="ms-label">总国家数</div></div>
+      <div class="map-stat-card"><div class="ms-val" id="travelStatPct">${((visited.size/totalCountries)*100).toFixed(0)}%</div><div class="ms-label">完成度</div></div>
     </div>`;
 
     h+=`<div class="map-legend"><span><span class="dot" style="background:#e2e8f0;border:1px solid #cbd5e1"></span>未去过</span><span><span class="dot" style="background:#22c55e"></span>去过</span><span><span class="dot" style="background:#e2e8f0;border:2px solid #3b82f6"></span>已选中</span><span><span class="dot" style="background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold">✓</span>去过标注</span><span style="color:#94a3b8;font-size:0.72rem">点击地图上的国家查看/标注</span></div>`;
@@ -328,7 +328,7 @@ const MH={
     h+=`<div class="world-map-wrap"><div id="worldMapSvg" style="min-height:200px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.85rem">加载世界地图中...</div></div>`;
     h+=`<div class="map-action-panel" id="mapActionPanel" style="display:none"></div>`;
 
-    h+=`<details class="map-tile-view"><summary>按大洲浏览</summary>`;
+    h+=`<details class="map-tile-view"><summary>按大洲浏览</summary><div id="travelTileContainer">`;
     for(const[continent,countries]of Object.entries(WORLD_MAP)){
       h+=`<div class="map-continent"><div class="map-continent-title">${continent}</div><div class="map-grid">`;
       countries.forEach(country=>{
@@ -337,8 +337,9 @@ const MH={
       });
       h+='</div></div>';
     }
-    h+='</details>';
+    h+='</div></details>';
 
+    h+='<div id="travelListContainer">';
     if(items.length){
       h+=`<div class="section-title">已去过 ${items.length} 个地方</div>`;
       items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -346,6 +347,7 @@ const MH={
         h+=`<div class="item-card">${item.image?`<img class="item-thumb" src="${item.image}">`:''}<div class="item-body"><div class="item-title">${U.esc(item.country)}</div><div class="item-desc">${item.date?'日期: '+item.date:''} ${item.continent?'| '+item.continent:''} ${item.note?'| '+U.esc(item.note):''}</div></div><div class="actions"><button class="action-btn edit" onclick="MH.editTravel('${item.id}')">编辑</button><button class="action-btn del" onclick="MH.del('travel','${item.id}')">删除</button></div></div>`;
       });
     }
+    h+='</div>';
     c.innerHTML=h;
 
     try{
@@ -412,6 +414,7 @@ const MH={
           const el=getCountryEl(selectedCountry);
           if(el){applyVisuals(el,selectedCountry,true);if(visited.has(selectedCountry))addMarker(el);else removeMarker();}
           renderPanel();
+          refreshTravelMeta();
           App.updateBadges();
         };
         panelEl.querySelector('#panelLogs').onclick=showLogs;
@@ -422,7 +425,7 @@ const MH={
         const content=document.getElementById('panelContent');
         const logs=items.filter(i=>i.country===selectedCountry);
         if(!logs.length){content.innerHTML='<div class="panel-empty">还没有旅行记录，点上面的"添加日志"开始记录</div>';}
-        else{let html='<div class="panel-logs">';logs.forEach(log=>{html+=`<div class="panel-log-item">${log.image?`<img src="${log.image}" class="panel-log-img">`:'<div class="panel-log-img" style="background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8">📷</div>'}<div class="panel-log-body">${log.date?`<div class="panel-log-date">📅 ${log.date}</div>`:''}${log.note?`<div class="panel-log-note">${U.esc(log.note)}</div>`:''}</div><button class="panel-log-del" data-id="${log.id}" title="删除">×</button></div>`;});html+='</div>';content.innerHTML=html;content.querySelectorAll('.panel-log-del').forEach(btn=>{btn.onclick=async()=>{if(!confirm('删除这条旅行日志？'))return;await MH.del('travel',btn.dataset.id);await refreshVisited();showLogs();renderPanel();};});}
+        else{let html='<div class="panel-logs">';logs.forEach(log=>{html+=`<div class="panel-log-item">${log.image?`<img src="${log.image}" class="panel-log-img">`:'<div class="panel-log-img" style="background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8">📷</div>'}<div class="panel-log-body">${log.date?`<div class="panel-log-date">📅 ${log.date}</div>`:''}${log.note?`<div class="panel-log-note">${U.esc(log.note)}</div>`:''}</div><button class="panel-log-del" data-id="${log.id}" title="删除">×</button></div>`;});html+='</div>';content.innerHTML=html;content.querySelectorAll('.panel-log-del').forEach(btn=>{btn.onclick=async()=>{if(!confirm('删除这条旅行日志？'))return;await MH.del('travel',btn.dataset.id);await refreshVisited();showLogs();renderPanel();refreshTravelMeta();};});}
         content.style.display='block';
       };
 
@@ -443,6 +446,7 @@ const MH={
             const el=getCountryEl(selectedCountry);
             if(el)applyVisuals(el,selectedCountry,true);
             renderPanel();
+            refreshTravelMeta();
           };
           if(file){const r=new FileReader();r.onload=()=>save(r.result);r.readAsDataURL(file);}else{save('');}
         };
@@ -501,8 +505,36 @@ const MH={
         el.addEventListener('click',(e)=>{e.stopPropagation();select(countryName);});
       });
       // Update stats with real SVG country count
-      const totalEl=document.querySelector('.map-stat-card .ms-val.total');
-      if(totalEl){totalEl.textContent=svgCountryCount;const pct=((visited.size/svgCountryCount)*100).toFixed(0);document.querySelectorAll('.map-stat-card .ms-val')[2].textContent=pct+'%';}
+      const totalEl=document.getElementById('travelStatTotal');
+      if(totalEl)totalEl.textContent=svgCountryCount;
+
+      // Refresh stats + tile view + visited list without touching map/panel
+      const refreshTravelMeta=()=>{
+        document.getElementById('travelStatVisited').textContent=visited.size;
+        document.getElementById('travelStatPct').textContent=((visited.size/svgCountryCount)*100).toFixed(0)+'%';
+        // tile view
+        let tileHtml='';
+        for(const[continent,countries]of Object.entries(WORLD_MAP)){
+          tileHtml+=`<div class="map-continent"><div class="map-continent-title">${continent}</div><div class="map-grid">`;
+          countries.forEach(country=>{
+            const v=visited.has(country);
+            tileHtml+=`<div class="map-tile ${v?'visited':''}" onclick="MH.selectCountryFromTile('${country}')">${country}${v?' ✓':''}</div>`;
+          });
+          tileHtml+='</div></div>';
+        }
+        document.getElementById('travelTileContainer').innerHTML=tileHtml;
+        // visited list
+        const sorted=[...items].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+        let listHtml='';
+        if(sorted.length){
+          listHtml=`<div class="section-title">已去过 ${sorted.length} 个地方</div>`;
+          sorted.forEach(item=>{
+            listHtml+=`<div class="item-card">${item.image?`<img class="item-thumb" src="${item.image}">`:''}<div class="item-body"><div class="item-title">${U.esc(item.country)}</div><div class="item-desc">${item.date?'日期: '+item.date:''} ${item.continent?'| '+item.continent:''} ${item.note?'| '+U.esc(item.note):''}</div></div><div class="actions"><button class="action-btn edit" onclick="MH.editTravel('${item.id}')">编辑</button><button class="action-btn del" onclick="MH.del('travel','${item.id}')">删除</button></div></div>`;
+          });
+        }
+        document.getElementById('travelListContainer').innerHTML=listHtml;
+      };
+      refreshTravelMeta();
 
       // Small island markers
       const vb=svg.viewBox.baseVal;
