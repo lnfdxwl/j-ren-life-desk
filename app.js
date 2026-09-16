@@ -77,7 +77,12 @@ const App={
         <span class="tab-name">${m.name}</span>
         <span class="tab-badge" id="badge_${m.id}"></span>
       </div>`
-    ).join('');
+    ).join('')+`
+      <div class="sidebar-divider"></div>
+      <div class="tab-item tab-data" onclick="App.openDataManager()">
+        <span class="tab-icon">💾</span>
+        <span class="tab-name">数据管理</span>
+      </div>`;
     this.updateBadges();
   },
 
@@ -109,7 +114,62 @@ const App={
   closeModal(){document.getElementById('modal').style.display='none';this.editId=null;},
   saveModal(){if(this.currentModule)MH.save(this.currentModule);},
   askConfirm(t,cb){document.getElementById('confirmText').textContent=t;this.confirmCb=cb;document.getElementById('confirmDialog').style.display='flex';},
-  closeConfirm(r){document.getElementById('confirmDialog').style.display='none';if(r&&this.confirmCb)this.confirmCb();this.confirmCb=null;}
+  closeConfirm(r){document.getElementById('confirmDialog').style.display='none';if(r&&this.confirmCb)this.confirmCb();this.confirmCb=null;},
+
+  openDataManager(){
+    const body=`
+      <div style="padding:8px 0;line-height:1.8">
+        <p style="color:#64748b;font-size:0.88rem;margin:0 0 16px">导出可将全部数据备份为 JSON 文件；导入会<strong style="color:#ef4444">覆盖当前所有数据</strong>，请先导出备份再操作。</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn-save" style="width:100%;padding:12px;border:none;border-radius:10px;font-size:0.95rem;cursor:pointer;background:#6366f1;color:#fff" onclick="App.exportData()">📤 导出全部数据</button>
+          <button class="btn-save" style="width:100%;padding:12px;border:none;border-radius:10px;font-size:0.95rem;cursor:pointer;background:#f59e0b;color:#fff" onclick="document.getElementById('importFileInput').click()">📥 导入数据（覆盖）</button>
+          <input type="file" id="importFileInput" accept=".json,application/json" style="display:none" onchange="App.importData(this.files[0])">
+        </div>
+      </div>`;
+    document.querySelector('#modal .modal-footer').innerHTML='<button class="btn-cancel" onclick="App.closeModal()">关闭</button>';
+    this.openModal('数据管理',body);
+  },
+
+  async exportData(){
+    const data={};
+    for(const s of DB.STORES){data[s]=await DB.all(s);}
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const d=new Date();
+    a.href=url;
+    a.download=`生活台数据备份_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+    document.body.appendChild(a);a.click();a.remove();
+    URL.revokeObjectURL(url);
+    U.toast('数据已导出');
+  },
+
+  async importData(file){
+    if(!file)return;
+    try{
+      const text=await file.text();
+      const data=JSON.parse(text);
+      if(typeof data!=='object'||!data)throw new Error('格式错误');
+      const stores=Object.keys(data).filter(k=>DB.STORES.includes(k));
+      if(!stores.length)throw new Error('未找到有效数据');
+      let total=0;stores.forEach(s=>total+=data[s].length);
+      this.askConfirm(`确定导入 ${stores.length} 个模块共 ${total} 条数据？\n这将覆盖当前所有数据，不可恢复。`,async()=>{
+        for(const s of stores){
+          const all=await DB.all(s);
+          for(const item of all){await DB.del(s,item.id);}
+          for(const item of data[s]){if(item&&item.id)await DB.put(s,item);}
+        }
+        await this.updateBadges();
+        if(this.currentModule)await MH.render(this.currentModule);
+        U.toast('数据导入成功');
+        this.closeModal();
+      });
+    }catch(e){
+      U.toast('导入失败：'+e.message);
+    }finally{
+      const input=document.getElementById('importFileInput');if(input)input.value='';
+    }
+  }
 };
 
 /* ===== Module Handler ===== */
