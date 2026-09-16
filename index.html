@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="生活台">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+  <title>J人生活台</title>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:true,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'e4be732005e2480991195e4a6a3b47fc'
+    });
+  }catch(e){}
+})();
+</script></head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>J人生活台</h1>
+      </div>
+      <nav class="sidebar-tabs" id="sidebarTabs"></nav>
+    </aside>
+
+    <!-- Right Content -->
+    <main class="main-content" id="mainContent">
+      <div class="welcome-screen">
+        <div class="welcome-icon">📋</div>
+        <h2>欢迎使用 J人生活台</h2>
+        <p>点击左侧菜单开始管理你的生活</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">添加</h2>
+        <button class="modal-close" onclick="App.closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="App.closeModal()">取消</button>
+        <button class="btn-save" id="modalSave" onclick="App.saveModal()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm -->
+  <div id="confirmDialog" class="modal-overlay" style="display:none;">
+    <div class="modal modal-confirm">
+      <div class="modal-body">
+        <p id="confirmText">确认删除？</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="App.closeConfirm(false)">取消</button>
+        <button class="btn-danger" onclick="App.closeConfirm(true)">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

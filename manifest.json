@@ -1,0 +1,24 @@
+{
+  "name": "J\u4eba\u751f\u6d3b\u53f0",
+  "short_name": "\u751f\u6d3b\u53f0",
+  "description": "J\u4eba\u751f\u6d3b\u5de5\u4f5c\u53f0 - \u7535\u5b50\u8863\u6a71\u3001\u751f\u6d3b\u6d88\u8017\u3001\u8d4f\u5473\u671f\u9650\u3001\u65c5\u884c\u8bb0\u5f55\u3001\u5468\u672b\u72c2\u6b22\u3001\u8282\u65e5\u8bb0\u5f55\u3001\u8eab\u4f53\u500d\u68d2\u3001\u751f\u6d3b\u5907\u5fd8\u3001\u884c\u674e\u6e05\u5355",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f7",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
